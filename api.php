@@ -12,6 +12,12 @@ switch($action) {
     case 'register':
         registerQRCode();
         break;
+    case 'update':
+        updateQRCode();
+        break;
+    case 'delete':
+        deleteQRCode();
+        break;
     case 'scan':
         scanQRCode();
         break;
@@ -64,6 +70,89 @@ function registerQRCode() {
         ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Gagal menyimpan ke database']);
+    }
+}
+
+function updateQRCode() {
+    global $conn;
+    
+    $id = $_POST['id'] ?? 0;
+    $name = $_POST['name'] ?? '';
+    $description = $_POST['description'] ?? '';
+    
+    if(empty($name) || $id <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Data tidak lengkap']);
+        return;
+    }
+    
+    // Get existing QR code
+    $stmt = $conn->prepare("SELECT code FROM qr_codes WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if($result->num_rows === 0) {
+        echo json_encode(['success' => false, 'message' => 'QR Code tidak ditemukan']);
+        return;
+    }
+    
+    $qrData = $result->fetch_assoc();
+    
+    // Update database
+    $stmt = $conn->prepare("UPDATE qr_codes SET name = ?, description = ? WHERE id = ?");
+    $stmt->bind_param("ssi", $name, $description, $id);
+    
+    if($stmt->execute()) {
+        echo json_encode([
+            'success' => true,
+            'code' => $qrData['code'],
+            'message' => 'QR Code berhasil diupdate'
+        ]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Gagal mengupdate QR Code']);
+    }
+}
+
+function deleteQRCode() {
+    global $conn;
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    $id = $data['id'] ?? 0;
+    
+    if($id <= 0) {
+        echo json_encode(['success' => false, 'message' => 'ID tidak valid']);
+        return;
+    }
+    
+    // Get QR code image path before deleting
+    $stmt = $conn->prepare("SELECT qr_image FROM qr_codes WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if($result->num_rows === 0) {
+        echo json_encode(['success' => false, 'message' => 'QR Code tidak ditemukan']);
+        return;
+    }
+    
+    $qrData = $result->fetch_assoc();
+    
+    // Delete from database
+    $stmt = $conn->prepare("DELETE FROM qr_codes WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    
+    if($stmt->execute()) {
+        // Delete QR code image file
+        if(file_exists($qrData['qr_image'])) {
+            unlink($qrData['qr_image']);
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'QR Code berhasil dihapus'
+        ]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Gagal menghapus QR Code']);
     }
 }
 

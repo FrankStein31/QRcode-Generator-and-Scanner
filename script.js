@@ -6,7 +6,18 @@ let countdownSeconds = 30;
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     loadQRList();
-    initScanner();
+    
+    // Initialize scanner only when scan tab is shown
+    document.getElementById('scan-tab').addEventListener('shown.bs.tab', function() {
+        if(!html5QrCode) {
+            initScanner();
+        }
+    });
+    
+    // Cancel button handler
+    document.getElementById('btnCancel').addEventListener('click', function() {
+        resetForm();
+    });
 });
 
 // Register QR Code
@@ -14,9 +25,16 @@ document.getElementById('registerForm').addEventListener('submit', async functio
     e.preventDefault();
     
     const formData = new FormData(this);
+    const editId = document.getElementById('editId').value;
+    
+    // Check if it's edit mode
+    if(editId) {
+        formData.append('id', editId);
+    }
     
     try {
-        const response = await fetch('api.php?action=register', {
+        const action = editId ? 'update' : 'register';
+        const response = await fetch(`api.php?action=${action}`, {
             method: 'POST',
             body: formData
         });
@@ -24,14 +42,15 @@ document.getElementById('registerForm').addEventListener('submit', async functio
         const result = await response.json();
         
         if(result.success) {
+            const message = editId ? 'diupdate' : 'dibuat';
             document.getElementById('registerResult').innerHTML = `
                 <div class="alert alert-success">
-                    <h5><i class="bi bi-check-circle"></i> QR Code berhasil dibuat!</h5>
+                    <h5><i class="bi bi-check-circle"></i> QR Code berhasil ${message}!</h5>
                     <p>Code: <strong>${result.code}</strong></p>
-                    <img src="${result.qr_image}" alt="QR Code" class="img-fluid mt-2">
+                    ${result.qr_image ? `<img src="${result.qr_image}" alt="QR Code" class="img-fluid qr-image-preview">` : ''}
                 </div>
             `;
-            this.reset();
+            resetForm();
             loadQRList();
         } else {
             document.getElementById('registerResult').innerHTML = `
@@ -217,6 +236,117 @@ async function markAsUsed() {
     currentScannedId = null;
 }
 
+// Reset Form
+function resetForm() {
+    document.getElementById('registerForm').reset();
+    document.getElementById('editId').value = '';
+    document.getElementById('btnText').textContent = 'Generate QR Code';
+    document.getElementById('btnSubmit').innerHTML = '<i class="bi bi-qr-code"></i> <span id="btnText">Generate QR Code</span>';
+    document.getElementById('btnCancel').style.display = 'none';
+    document.getElementById('registerResult').innerHTML = '';
+}
+
+// Edit QR Code
+function editQRCode(id, name, description) {
+    // Handle undefined/null values
+    name = name || '';
+    description = description || '';
+    
+    document.getElementById('editId').value = id;
+    document.getElementById('qrName').value = name;
+    document.getElementById('qrDescription').value = description;
+    document.getElementById('btnText').textContent = 'Update QR Code';
+    document.getElementById('btnSubmit').innerHTML = '<i class="bi bi-pencil"></i> <span id="btnText">Update QR Code</span>';
+    document.getElementById('btnCancel').style.display = 'block';
+    
+    // Scroll to form
+    document.querySelector('#registerForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Delete QR Code
+async function deleteQRCode(id, name) {
+    if(!confirm(`Apakah Anda yakin ingin menghapus QR Code "${name}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('api.php?action=delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ id: id })
+        });
+        
+        const result = await response.json();
+        
+        if(result.success) {
+            alert('QR Code berhasil dihapus!');
+            loadQRList();
+        } else {
+            alert('Gagal menghapus QR Code: ' + result.message);
+        }
+    } catch(error) {
+        console.error('Delete error:', error);
+        alert('Terjadi kesalahan saat menghapus QR Code');
+    }
+}
+
+// View QR Code Detail
+function viewQRCode(id, code, name, description, qrImage, scannedAt, isUsed) {
+    // Handle undefined/null values
+    code = code || '';
+    name = name || 'N/A';
+    description = description || '-';
+    qrImage = qrImage || '';
+    scannedAt = scannedAt || '';
+    
+    const status = isUsed == 1 ? 
+        '<span class="badge bg-warning">Digunakan (40)</span>' : 
+        scannedAt ? 
+        '<span class="badge bg-success">Di-scan (30)</span>' :
+        '<span class="badge bg-secondary">Belum Di-scan (30)</span>';
+    
+    const modal = `
+        <div class="modal fade" id="qrModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                        <h5 class="modal-title"><i class="bi bi-qr-code-scan"></i> Detail QR Code</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        ${qrImage ? `<img src="${qrImage}" alt="QR Code" class="img-fluid mb-3" style="max-width: 300px;">` : '<p class="text-muted">QR Code image not available</p>'}
+                        <h4>${name}</h4>
+                        <p class="text-muted">${description}</p>
+                        <p><strong>Code:</strong> ${code}</p>
+                        <p><strong>Status:</strong> ${status}</p>
+                        ${scannedAt && scannedAt !== 'null' ? `<p><strong>Waktu Scan:</strong> ${scannedAt}</p>` : ''}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('qrModal');
+    if(existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modal);
+    const modalElement = new bootstrap.Modal(document.getElementById('qrModal'));
+    modalElement.show();
+    
+    // Remove modal from DOM after hide
+    document.getElementById('qrModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
 // Load QR Code List
 async function loadQRList() {
     try {
@@ -228,25 +358,40 @@ async function loadQRList() {
             
             result.data.forEach(qr => {
                 const statusBadge = qr.is_used == 1 ? 
-                    '<span class="badge bg-warning badge-status">Digunakan (40)</span>' : 
+                    '<span class="badge bg-warning badge-status">Digunakan</span>' : 
                     qr.scanned_at ? 
-                    '<span class="badge bg-success badge-status">Di-scan (30)</span>' :
-                    '<span class="badge bg-secondary badge-status">Belum Di-scan (30)</span>';
+                    '<span class="badge bg-success badge-status">Di-scan</span>' :
+                    '<span class="badge bg-secondary badge-status">Belum Di-scan</span>';
+                
+                // Escape quotes and handle null values
+                const safeName = (qr.name || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+                const safeDescription = (qr.description || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+                const safeCode = (qr.code || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+                const safeImage = qr.qr_image || '';
+                const safeScannedAt = qr.scanned_at || '';
                 
                 html += `
                     <div class="list-group-item qr-item mb-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
                                 <h6 class="mb-1"><i class="bi bi-qr-code"></i> ${qr.name}</h6>
-                                <p class="mb-1 text-muted">${qr.description || '-'}</p>
+                                <p class="mb-1 text-muted small">${qr.description || '-'}</p>
                                 <small class="text-muted">
                                     <i class="bi bi-key"></i> Code: ${qr.code}
                                 </small>
                             </div>
-                            <div class="text-end">
+                            <div class="text-end ms-3">
                                 ${statusBadge}
                                 <br>
-                                <small class="text-muted">${qr.created_at}</small>
+                                <small class="text-muted d-block mb-2">${qr.created_at}</small>
+                                <div class="qr-actions">
+                                    <button class="btn btn-sm btn-warning btn-action" onclick='editQRCode(${qr.id}, "${safeName}", "${safeDescription}")' title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger btn-action" onclick='deleteQRCode(${qr.id}, "${safeName}")' title="Hapus">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
