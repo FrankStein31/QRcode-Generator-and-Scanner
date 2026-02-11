@@ -4,16 +4,19 @@ Website sederhana untuk mengelola dan scan QR Code (Silahkan Dikembangkan Lebih 
 
 ## Fitur
 
-### 1. Register QR Code
+### 1. Register QR Code <br>
+<img width="1781" height="1020" alt="image" src="https://github.com/user-attachments/assets/966f1e94-5588-4e84-9c12-4e5b0363c254" /> <br>
 - Generate QR Code secara RANDOM
 - Scan menggunakan kamera untuk membaca QR Code
 
-### 2. Scan QR Code
+### 2. Scan QR Code <br>
+<img width="1781" height="1016" alt="image" src="https://github.com/user-attachments/assets/c87e087d-0e9e-4bc5-bf70-4ff03abe9c45" /> <br>
 - Setelah register berhasil, kamera aktif untuk scan QR Code
 - Setelah berhasil membaca QR Code, QR Code langsung ditandai sebagai "digunakan" (is_used = 1)
 - QR Code yang tidak terdaftar tidak dapat di-scan
 
-### 3. Auto Mark as Used
+### 3. Auto Mark as Used <br>
+<img width="1779" height="1017" alt="image" src="https://github.com/user-attachments/assets/ecbdbd6c-be57-4041-a864-7336af884961" /> <br>
 - Setelah scan berhasil, QR Code langsung ditandai sebagai "digunakan" di database
 - QR Code yang sudah digunakan tidak dapat digunakan kembali
 - User diminta untuk scan QR Code lain
