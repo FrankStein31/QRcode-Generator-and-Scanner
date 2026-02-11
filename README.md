@@ -1,4 +1,4 @@
-# Sistem QR Code
+# Sistem QR Code (Scalable)
 
 Website sederhana untuk mengelola dan scan QR Code (Silahkan Dikembangkan Lebih Lanjut)
 
